@@ -7,7 +7,9 @@ import numpy as np
 import scipy as sp
 import matplotlib.pyplot as plt
 from keras.preprocessing import image
-from imagenet_utils import preprocess_input
+from imagenet_utils import preprocess_input, decode_predictions
+from scipy.io import loadmat
+
 
 #2 simple functions to visualize an image predicted by the model
 #https://github.com/erikreppel/visualizing_cnns/blob/master/visualize_cnns.ipynb
@@ -134,7 +136,48 @@ def bilinear_upsample_weights(factor, number_of_classes):
     upsample_kernel = upsample_filt(filter_size)
 
     for i in xrange(number_of_classes):
-
         weights[:, :, i, i] = upsample_kernel
-
     return weights
+
+def copy_mat_to_keras(kmodel):
+    kerasnames = [lr.name for lr in kmodel.layers]
+    for i in range(0, p.shape[1]-1, 2):
+        matname = '_'.join(p[0,i].name[0].split('_')[0:-1])
+        if matname in kerasnames:
+            kindex = kerasnames.index(matname)
+            print 'found : ', (str(matname), kindex)
+            l_weights = p[0,i].value
+            l_bias = p[0,i+1].value
+            kmodel.layers[kindex].set_weights([l_weights, l_bias[:,0]])
+        else:
+            print 'not found : ', str(matname)
+
+
+def prepareim(im):
+    im[:,:,0] -= 103.939
+    im[:,:,1] -= 116.779
+    im[:,:,2] -= 123.68
+    im = np.expand_dims(im, axis=0)
+    return im
+
+def predvgg():
+    im = keras_open_image('cat.png')
+    im[:,:,0] -= 103.939
+    im[:,:,1] -= 116.779
+    im[:,:,2] -= 123.68
+    im = np.expand_dims(im, axis=0)
+
+    # Test pretrained model
+    model = vgg()
+    sgd = SGD(lr=0.1, decay=1e-6, momentum=0.9, nesterov=True)
+    model.compile(optimizer=sgd, loss='categorical_crossentropy')
+    out = model.predict(im)
+    return out
+
+"""
+utili per il dataset
+        data = loadmat('pascal-fcn32s-dag.mat', matlab_compatible=False, struct_as_record=False)
+        l = data['layers']
+        p = data['params']
+        description = data['meta'][0,0].classes[0,0].description
+"""
