@@ -78,16 +78,15 @@ def vgg_FCN():
     conv5_2 = Conv2D(512,kernel_size=(3,3),activation='relu',padding='same', name='conv5_2')(conv5_1)
     conv5_3 = Conv2D(512,kernel_size=(3,3),activation='relu',padding='same', name='conv5_3')(conv5_2)
     pool5 = MaxPooling2D((2,2), strides=(2,2), name='block5_pool')(conv5_3)
-    #Fully Convolutional Layers 32s
-    fc6 = Conv2D(4096,kernel_size=(7,7),activation='relu',padding='same', name='fc6')(pool5)
-    drop6 = Dropout(0.5)(fc6)
-    fc7 = Conv2D(4096,kernel_size=(1,1),activation='relu',padding='same', name='fc7')(drop6)
-    drop7 = Dropout(0.5)(fc7)
-    score_fr = Conv2D(21, kernel_size=(1,1), padding='valid', name='score_fr')(drop7)
-    #Deconv Layer
-    bil = Conv2DTranspose(21, kernel_size=(64,64),strides=(32,32), name='upsample')(score_fr)
-    crop = Cropping2D(cropping=16)(bil)
-    model = Model(inputs=inputData, outputs=[crop])
+
+    flat = Flatten()(pool5)
+    d1 = Dense(4096, activation='relu')(flat)
+    drop1 = Dropout()(d1)
+    d2 = Dense(4096, activation='relu')(drop1)
+    drop2 = Dropout()(d2)
+    d3 = Dense(1000, activation='relu')(drop2)
+
+    model = Model(inputs=inputData, outputs=[d3])
     return model
 
 
