@@ -99,6 +99,7 @@ def discrete_matshow(data, labels_names=[], title=""):
 
     if title:
         plt.suptitle(title, fontsize=15, fontweight='bold')
+
 def get_kernel_size(factor):
     """
     Find the kernel size given the desired factor of upsampling.
@@ -139,7 +140,12 @@ def bilinear_upsample_weights(factor, number_of_classes):
         weights[:, :, i, i] = upsample_kernel
     return weights
 
-def copy_mat_to_keras(kmodel):
+
+#idea from https://github.com/mzaradzki/neuralnets/tree/master/vgg_segmentation_keras
+def copy_mat_to_kerasFCN(kmodel, mod=32):
+    dagmat = 'pascal-fcn' + mod + 's-dag.mat' #for FCN16s -> mod=16
+    data = loadmat(dagmat, matlab_compatible=False, struct_as_record=False)
+    l = data['layers']
     kerasnames = [lr.name for lr in kmodel.layers]
     for i in range(0, p.shape[1]-1, 2):
         matname = '_'.join(p[0,i].name[0].split('_')[0:-1])
@@ -152,6 +158,82 @@ def copy_mat_to_keras(kmodel):
         else:
             print 'not found : ', str(matname)
 
+def copy_mat_to_kerasFCN8(kmodel):
+    data = loadmat('pascal-fcn8s-dag.mat', matlab_compatible=False, struct_as_record=False)
+    l = data['layers']
+    x = 0
+    kerasnames = [lr.name for lr in kmodel.layers]
+    for i in range(0, p.shape[1]-1-2*2, 2):
+        matname = '_'.join(p[0,i].name[0].split('_')[0:-1])
+        if matname in kerasnames:
+            kindex = kerasnames.index(matname)
+            print 'found : ', (str(matname), kindex)
+            l_weights = p[0,i].value
+            l_bias = p[0,i+1].value
+            kmodel.layers[kindex].set_weights([l_weights, l_bias[:,0]])
+        else:
+            print 'not found : ', str(matname)
+    for i in range(p.shape[1]-1-2*2+1, p.shape[1]):
+        matname = '_'.join(p[0,i].name[0].split('_')[0:-1])
+        if matname in kerasnames:
+            kindex = kerasnames.index(matname)
+            print 'found : ', (str(matname), kindex)
+            l_weights = p[0,i].value
+            if l_bias.all():
+                l_bias = p[0,i+1].value
+            if str(matname) == 'score4' or str(matname) == 'upscore':
+                kmodel.layers[kindex].set_weights([l_weights])
+            elif str(matname) == 'score_pool3':
+                if x == 0:
+                    x = x + 1
+                    current_f = l_weights
+                elif x == 1:
+                    x = x + 1
+                    kmodel.layers[kindex].set_weights([current_f, l_weights[:,0]])
+            else:
+                kmodel.layers[kindex].set_weights([l_weights])
+        else:
+            print 'not found : ', str(matname)
+
+#idea from https://github.com/aurora95/Keras-FCN
+def set_vgg_weights(model2):
+    model = vgg16.VGG_16()
+    flattened_layers = model2.layers
+    index={}
+    i=0
+    for layer in flattened_layers:
+        if layer.name:
+            index[layer.name]=layer
+    for layer in model.layers:
+        weights = layer.get_weights()
+        if layer.name=='fc1':
+            weights[0] = np.reshape(weights[0], (7,7,512,4096))
+        elif layer.name=='fc2':
+            weights[0] = np.reshape(weights[0], (1,1,4096,4096))
+        elif layer.name=='predictions':
+            weights[0] = np.reshape(weights[0], (1,1,4096,1000))
+        if index.has_key(layer.name):
+            model2.get_layer(layer.name).set_weights(weights)
+        else:
+            if layer.name == 'flatten':
+                i = i+1
+            else:
+                model2.layers[i].set_weights(weights)
+        i = i+1
+    return model2
+
+def figswithpred(pred):
+    imclass = np.argmax(preds, axis=3)[0,:,:]
+    plt.figure()
+    plt.subplot(1,3,1)
+    plt.imshow(catorig)
+    plt.subplot(1,3,2)
+    plt.imshow(imclass)
+    plt.subplot(1,3,3)
+    plt.imshow(catorig)
+    masked_imclass = np.ma.masked_where(imclass == 0, imclass)
+    #plt.imshow( imclass, alpha=0.5 )
+    plt.imshow(masked_imclass, alpha=0.5)
 
 def prepareim(im):
     im[:,:,0] -= 103.939
