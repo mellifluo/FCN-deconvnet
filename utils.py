@@ -142,10 +142,11 @@ def bilinear_upsample_weights(factor, number_of_classes):
 
 
 #idea from https://github.com/mzaradzki/neuralnets/tree/master/vgg_segmentation_keras
-def copy_mat_to_kerasFCN(kmodel, mod=32):
+def copy_mat_to_kerasFCN(kmodel, mod='32'):
     dagmat = 'pascal-fcn' + mod + 's-dag.mat' #for FCN16s -> mod=16
     data = loadmat(dagmat, matlab_compatible=False, struct_as_record=False)
     l = data['layers']
+    p = data['params']
     kerasnames = [lr.name for lr in kmodel.layers]
     for i in range(0, p.shape[1]-1, 2):
         matname = '_'.join(p[0,i].name[0].split('_')[0:-1])
@@ -161,6 +162,7 @@ def copy_mat_to_kerasFCN(kmodel, mod=32):
 def copy_mat_to_kerasFCN8(kmodel):
     data = loadmat('pascal-fcn8s-dag.mat', matlab_compatible=False, struct_as_record=False)
     l = data['layers']
+    p = data['params']
     x = 0
     kerasnames = [lr.name for lr in kmodel.layers]
     for i in range(0, p.shape[1]-1-2*2, 2):
@@ -257,7 +259,7 @@ def predvgg():
     return out
 
 """
-utili per il dataset
+useful for dataset
         data = loadmat('pascal-fcn32s-dag.mat', matlab_compatible=False, struct_as_record=False)
         l = data['layers']
         p = data['params']
